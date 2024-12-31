@@ -1,11 +1,9 @@
 name: Windows Build
-
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
   workflow_dispatch:  # Allows manual triggering
     inputs:
       debug_enabled:
@@ -13,7 +11,6 @@ on:
         required: false
         default: false
         type: boolean
-
 env:
   KF_VERSION: 6.7
   KF_BRANCH: stable
@@ -24,72 +21,62 @@ env:
   WITH_NATIVE_NOTIFICATIONS: ON
   WITH_QT6: ON
   WINDEPLOYQT_ARGS: --no-system-d3d-compiler --no-opengl-sw --no-quick
-
 jobs:
   build:
-    runs-on: windows-2019
+    runs-on: [ windows-latest, arm64 ]
     
     env:
-      QTDIR: C:\Qt\6.5\msvc2019_64
+      QTDIR: C:\Qt\6.5\msvc2019_arm64
       CMAKE_GENERATOR: Visual Studio 16 2019
-      CMAKE_GENERATOR_ARCH: x64
+      CMAKE_GENERATOR_ARCH: ARM64
       BUILD_SUB_DIR: Release
-      OPENSSL_PATH: C:\Program Files\OpenSSL-Win64\bin
-      LIBSSL: libssl-1_1-x64.dll
-      LIBCRYPTO: libcrypto-1_1-x64.dll
+      OPENSSL_PATH: C:\Program Files\OpenSSL-ARM64\bin
+      LIBSSL: libssl-1_1-arm64.dll
+      LIBCRYPTO: libcrypto-1_1-arm64.dll
       GPGPATH: C:\Program Files\Git\usr\bin
-
     steps:
     - uses: actions/checkout@v4
-
     - name: Cache Dependencies
       uses: actions/cache@v3
       with:
         path: |
           usr
           downloads
-        key: ${{ runner.os }}-deps-${{ hashFiles('**/CMakeLists.txt') }}
+        key: ${{ runner.os }}-arm64-deps-${{ hashFiles('**/CMakeLists.txt') }}
         restore-keys: |
-          ${{ runner.os }}-deps-
-
+          ${{ runner.os }}-arm64-deps-
     - name: Setup Qt
       uses: jurplel/install-qt-action@v3
       with:
         version: ${{ env.QT_VERSION }}
-        arch: win64_msvc2019_64
+        arch: win64_msvc2019_arm64
         
     - name: Install OpenSSL
       run: |
-        choco install openssl --version=1.1.1.2100 -y
-        echo "C:\Program Files\OpenSSL-Win64\bin" >> $GITHUB_PATH
+        choco install openssl --version=1.1.1.2100 -y --force --params "/PLATFORM=arm64"
+        echo "C:\Program Files\OpenSSL-ARM64\bin" >> $GITHUB_PATH
         
     - name: Install Dependencies
       shell: bash
       run: ./utils/appveyor/install.sh
-
     - name: Configure Build
       shell: bash
       run: ./utils/appveyor/before_build.sh
-
     - name: Build
       shell: bash
       run: ./utils/appveyor/build_script.sh
-
     - name: Post-Build Processing
       shell: bash
       run: ./utils/appveyor/after_build.sh
-
     - name: Run Screenshot Tests
       shell: bash
       run: ./utils/appveyor/test_screenshots.sh
-
     - name: Run Tests
       shell: bash
       run: ./utils/appveyor/test.sh
-
     - name: Upload Test Logs
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: test-logs
+        name: test-logs-arm64
         path: '**/*copyq*.log*'
